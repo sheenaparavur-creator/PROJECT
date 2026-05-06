@@ -1,0 +1,6 @@
+{
+  "name": "MNIST Digit Classifier",
+  "description": "A machine learning application that identifies handwritten digits using a scikit-learn model and FastAPI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
