@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digit Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #13131a; --border: #2a2a3a;
+      --accent: #7c6aff; --accent2: #ff6ac1; --text: #e8e8f0;
+      --muted: #6b6b80; --success: #4fffb0;
+      --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--sans);
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 2rem; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(124,106,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none; z-index: 0;
+    }
+    body::after {
+      content: ''; position: fixed; top: -30%; left: -20%; width: 60vw; height: 60vw;
+      background: radial-gradient(ellipse, rgba(124,106,255,0.08) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+    .container {
+      position: relative; z-index: 1; width: 100%; max-width: 860px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;
+    }
+    header { grid-column: 1/-1; display: flex; align-items: baseline; gap: 1rem; margin-bottom: 0.5rem; }
+    header h1 {
+      font-size: clamp(2rem,5vw,3.2rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1;
+      background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    header .tag {
+      font-family: var(--mono); font-size: 0.7rem; color: var(--accent);
+      border: 1px solid var(--accent); padding: 0.2rem 0.5rem; border-radius: 3px;
+      letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; opacity: 0.8;
+    }
+    .subtitle { grid-column: 1/-1; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); margin-top: -1rem; margin-bottom: 0.5rem; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 1.75rem; position: relative; overflow: hidden;
+    }
+    .panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0.6;
+    }
+    .panel-label { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 1.25rem; }
+    .input-panel { display: flex; flex-direction: column; gap: 1.25rem; }
+    .tabs { display: flex; gap: 0.25rem; background: var(--bg); border-radius: 8px; padding: 0.25rem; }
+    .tab {
+      flex: 1; background: none; border: none; color: var(--muted); font-family: var(--mono);
+      font-size: 0.72rem; padding: 0.5rem; border-radius: 6px; cursor: pointer;
+      transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+    .canvas-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+    #drawCanvas {
+      border: 1px solid var(--border); border-radius: 10px; cursor: crosshair;
+      touch-action: none; background: #000; display: block; width: 100%; max-width: 280px; aspect-ratio: 1;
+    }
+    .upload-area {
+      border: 2px dashed var(--border); border-radius: 10px; padding: 2.5rem 1rem;
+      text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: rgba(124,106,255,0.05); }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .upload-area p { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+    .upload-area strong { color: var(--accent); }
+    #uploadPreview { max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); display: none; }
+    .canvas-controls { display: flex; gap: 0.5rem; width: 100%; max-width: 280px; }
+    .btn { flex: 1; padding: 0.6rem 1rem; border-radius: 8px; border: none; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+    .btn-ghost { background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #fff; font-weight: 700; }
+    .btn-primary:hover { background: #9580ff; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .classify-btn { width: 100%; padding: 0.85rem; font-size: 0.8rem; }
+    .result-panel { display: flex; flex-direction: column; gap: 1.5rem; min-height: 320px; }
+    .prediction-display {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      flex: 1; gap: 0.5rem; padding: 1.5rem; background: var(--bg);
+      border-radius: 12px; border: 1px solid var(--border); min-height: 180px;
+    }
+    .big-digit {
+      font-size: 6rem; font-weight: 800; line-height: 1;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      font-family: var(--mono); animation: pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    @keyframes pop { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+    .idle-text { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); text-align: center; line-height: 1.8; }
+    .confidence-wrap { display: flex; flex-direction: column; gap: 0.4rem; }
+    .confidence-label { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+    .confidence-value { color: var(--success); font-weight: 700; }
+    .confidence-bar-bg { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+    .confidence-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 99px; transition: width 0.6s cubic-bezier(0.23,1,0.32,1); width: 0%; }
+    .probs-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 0.4rem; }
+    .prob-cell { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+    .prob-bar-wrap { width: 100%; height: 40px; background: var(--bg); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; border: 1px solid var(--border); }
+    .prob-bar-fill { width: 100%; background: var(--border); border-radius: 4px 4px 0 0; transition: height 0.5s cubic-bezier(0.23,1,0.32,1); height: 0%; }
+    .prob-bar-fill.predicted { background: linear-gradient(180deg, var(--accent2), var(--accent)); }
+    .prob-digit { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+    .prob-pct { font-family: var(--mono); font-size: 0.55rem; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .loading-text { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+    .error-box { background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.3); border-radius: 8px; padding: 0.75rem 1rem; font-family: var(--mono); font-size: 0.72rem; color: #ff8080; }
+    footer { grid-column: 1/-1; text-align: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); opacity: 0.6; margin-top: 0.5rem; }
+    @media(max-width:600px){.container{grid-template-columns:1fr} header{flex-direction:column;align-items:flex-start;gap:.5rem}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Digit Classifier</h1>
+    <span class="tag">MNIST · v1.0</span>
+  </header>
+  <p class="subtitle">// Draw or upload a handwritten digit → get a prediction</p>
+
+  <div class="panel input-panel">
+    <div class="panel-label">01 / Input</div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('draw',this)">✏ Draw</button>
+      <button class="tab" onclick="switchTab('upload',this)">⬆ Upload</button>
+    </div>
+    <div id="drawTab" class="canvas-wrap">
+      <canvas id="drawCanvas" width="280" height="280"></canvas>
+      <div class="canvas-controls">
+        <button class="btn btn-ghost" onclick="clearCanvas()">Clear</button>
+        <button class="btn btn-primary classify-btn" onclick="classifyCanvas()">Classify →</button>
+      </div>
+    </div>
+    <div id="uploadTab" style="display:none;flex-direction:column;gap:1rem;">
+      <div class="upload-area" id="uploadArea">
+        <input type="file" accept="image/*" id="fileInput" onchange="handleFile(event)">
+        <div class="upload-icon">🖼</div>
+        <p><strong>Click to upload</strong> or drag & drop</p>
+        <p>PNG, JPG, GIF — any size</p>
+      </div>
+      <img id="uploadPreview" alt="Preview">
+      <button class="btn btn-primary classify-btn" id="uploadClassifyBtn" onclick="classifyUpload()" disabled>Classify →</button>
+    </div>
+  </div>
+
+  <div class="panel result-panel">
+    <div class="panel-label">02 / Prediction</div>
+    <div class="prediction-display" id="predictionDisplay">
+      <p class="idle-text">Draw a digit or<br>upload an image<br>to get started</p>
+    </div>
+    <div id="confidenceSection" style="display:none;" class="confidence-wrap">
+      <div class="confidence-label">
+        <span>Confidence</span>
+        <span class="confidence-value" id="confidenceText">—</span>
+      </div>
+      <div class="confidence-bar-bg"><div class="confidence-bar" id="confidenceBar"></div></div>
+    </div>
+    <div id="probsSection" style="display:none;">
+      <div class="panel-label" style="margin-bottom:.75rem;">Probability distribution</div>
+      <div class="probs-grid" id="probsGrid"></div>
+    </div>
+    <div id="errorSection" style="display:none;"></div>
+  </div>
+
+  <footer>MNIST Digit Classifier · Backend: project-1-sa58.onrender.com</footer>
+</div>
+<script>
+  const API = 'https://project-1-sa58.onrender.com/predict';
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,280,280);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 20; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  function getPos(e){
+    const r=canvas.getBoundingClientRect(), sx=280/r.width, sy=280/r.height, s=e.touches?e.touches[0]:e;
+    return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};
+  }
+  canvas.addEventListener('mousedown',e=>{drawing=true;const p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);});
+  canvas.addEventListener('mousemove',e=>{if(!drawing)return;const p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();});
+  canvas.addEventListener('mouseup',()=>drawing=false);
+  canvas.addEventListener('mouseleave',()=>drawing=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;const p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();},{passive:false});
+  canvas.addEventListener('touchend',()=>drawing=false);
+
+  function clearCanvas(){ctx.fillStyle='#000';ctx.fillRect(0,0,280,280);resetResult();}
+  function classifyCanvas(){sendToAPI(canvas.toDataURL('image/png'));}
+
+  let uploadedDataURL=null;
+  const dropArea=document.getElementById('uploadArea');
+  dropArea.addEventListener('dragover',e=>{e.preventDefault();dropArea.classList.add('drag-over');});
+  dropArea.addEventListener('dragleave',()=>dropArea.classList.remove('drag-over'));
+  dropArea.addEventListener('drop',e=>{e.preventDefault();dropArea.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))loadFile(f);});
+  function handleFile(e){const f=e.target.files[0];if(f)loadFile(f);}
+  function loadFile(file){
+    const r=new FileReader();
+    r.onload=ev=>{uploadedDataURL=ev.target.result;const p=document.getElementById('uploadPreview');p.src=uploadedDataURL;p.style.display='block';document.getElementById('uploadClassifyBtn').disabled=false;resetResult();};
+    r.readAsDataURL(file);
+  }
+  function classifyUpload(){if(uploadedDataURL)sendToAPI(uploadedDataURL);}
+
+  function switchTab(tab,btn){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('drawTab').style.display=tab==='draw'?'flex':'none';
+    const ut=document.getElementById('uploadTab');ut.style.display=tab==='upload'?'flex':'none';
+    resetResult();
+  }
+
+  async function sendToAPI(dataURL){
+    setLoading();
+    try{
+      const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:dataURL})});
+      if(!res.ok){const e=await res.json().catch(()=>({detail:`HTTP ${res.status}`}));throw new Error(e.detail||`HTTP ${res.status}`);}
+      showResult(await res.json());
+    }catch(err){showError(err.message);}
+  }
+
+  function setLoading(){
+    document.getElementById('predictionDisplay').innerHTML='<div class="spinner"></div><p class="loading-text">Analyzing...</p>';
+    document.getElementById('confidenceSection').style.display='none';
+    document.getElementById('probsSection').style.display='none';
+    document.getElementById('errorSection').style.display='none';
+  }
+  function resetResult(){
+    document.getElementById('predictionDisplay').innerHTML='<p class="idle-text">Draw a digit or<br>upload an image<br>to get started</p>';
+    document.getElementById('confidenceSection').style.display='none';
+    document.getElementById('probsSection').style.display='none';
+    document.getElementById('errorSection').style.display='none';
+  }
+  function showResult(data){
+    const pred=data.prediction, conf=data.confidence??null;
+    document.getElementById('predictionDisplay').innerHTML=`
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Predicted digit</div>
+      <div class="big-digit">${pred}</div>`;
+    if(conf!==null){
+      const pct=Math.round(conf*100);
+      document.getElementById('confidenceSection').style.display='flex';
+      document.getElementById('confidenceText').textContent=`${pct}%`;
+      setTimeout(()=>{document.getElementById('confidenceBar').style.width=`${pct}%`;},50);
+    }
+    const probs=data.probabilities||(conf!==null?Object.fromEntries([...Array(10).keys()].map(i=>[i,i==pred?conf:(1-conf)/9])):null);
+    if(probs)renderProbBars(probs,pred);
+    document.getElementById('errorSection').style.display='none';
+  }
+  function renderProbBars(probs,predicted){
+    const grid=document.getElementById('probsGrid');grid.innerHTML='';
+    for(let i=0;i<=9;i++){
+      const p=probs[i]??0,pct=Math.round(p*100),isPred=String(i)===String(predicted);
+      const cell=document.createElement('div');cell.className='prob-cell';
+      cell.innerHTML=`<div class="prob-bar-wrap"><div class="prob-bar-fill${isPred?' predicted':''}" style="height:${pct}%"></div></div><div class="prob-digit">${i}</div><div class="prob-pct">${pct}%</div>`;
+      grid.appendChild(cell);
+    }
+    document.getElementById('probsSection').style.display='block';
+  }
+  function showError(msg){
+    document.getElementById('predictionDisplay').innerHTML='<p class="idle-text">Something went wrong</p>';
+    const e=document.getElementById('errorSection');e.style.display='block';e.innerHTML=`<div class="error-box">⚠ ${msg}</div>`;
+    document.getElementById('confidenceSection').style.display='none';
+    document.getElementById('probsSection').style.display='none';
+  }
+</script>
+</body>
+</html>
